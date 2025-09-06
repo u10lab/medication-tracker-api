@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\MedicationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -38,10 +39,24 @@ Route::prefix('auth')->group(function () {
 });
 
 // 保護されたAPIルート（認証が必要）
-Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('medications')->group(function () {
-        Route::get('/', function () {
-            return response()->json(['message' => 'Medications endpoint - Coming soon']);
-        });
+Route::middleware(\App\Http\Middleware\SimpleDummyAuth::class)->group(function () {
+    // 処方薬管理API
+    Route::apiResource('medications', MedicationController::class);
+    
+    // 処方薬パターン管理API
+    Route::prefix('medications/{medication}')->group(function () {
+        Route::apiResource('patterns', \App\Http\Controllers\Api\MedicationPatternController::class);
+    });
+    
+    // 服薬ログ管理API
+    Route::apiResource('medication-logs', \App\Http\Controllers\Api\MedicationLogController::class);
+    
+    // 副作用タイプ取得（全ユーザー共通）
+    Route::get('side-effect-types', function () {
+        $sideEffects = \App\Models\SideEffectType::all();
+        return response()->json([
+            'success' => true,
+            'data' => $sideEffects
+        ]);
     });
 });
