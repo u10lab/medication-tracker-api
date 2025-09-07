@@ -28,19 +28,18 @@ class SimpleDummyAuth
         
         $token = substr($authHeader, 7); // Remove "Bearer "
         
-        // Simple dummy authentication for testing
+        // Simple dummy authentication for testing (DB-less)
         if (str_starts_with($token, 'dummy_token_')) {
-            // Create or get a dummy user
-            $user = User::firstOrCreate(
-                ['email' => 'test@example.com'],
-                [
-                    'name' => 'Test User',
-                    'password' => bcrypt('password')
-                ]
-            );
+            // Create a dummy user object without database
+            $dummyUser = new User([
+                'id' => 1,
+                'name' => 'Test User',
+                'email' => 'test@example.com',
+            ]);
+            $dummyUser->exists = true;
             
-            // Authenticate the user
-            Auth::login($user);
+            // Set authenticated user manually
+            Auth::setUser($dummyUser);
         } else {
             return response()->json([
                 'success' => false,
