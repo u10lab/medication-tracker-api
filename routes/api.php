@@ -53,10 +53,49 @@ Route::middleware(\App\Http\Middleware\SimpleDummyAuth::class)->group(function (
     
     // 副作用タイプ取得（全ユーザー共通）
     Route::get('side-effect-types', function () {
-        $sideEffects = \App\Models\SideEffectType::all();
+        $sideEffects = [
+            ['id' => 1, 'name' => '頭痛', 'category' => '神経系'],
+            ['id' => 2, 'name' => '吐き気', 'category' => '消化器系'],
+            ['id' => 3, 'name' => 'めまい', 'category' => '神経系'],
+            ['id' => 4, 'name' => '疲労感', 'category' => '全身症状'],
+            ['id' => 5, 'name' => '発疹', 'category' => '皮膚症状'],
+            ['id' => 6, 'name' => '下痢', 'category' => '消化器系'],
+            ['id' => 7, 'name' => '便秘', 'category' => '消化器系'],
+            ['id' => 8, 'name' => '食欲不振', 'category' => '消化器系'],
+            ['id' => 9, 'name' => '不眠', 'category' => '神経系'],
+            ['id' => 10, 'name' => '眠気', 'category' => '神経系']
+        ];
         return response()->json([
             'success' => true,
             'data' => $sideEffects
         ]);
     });
+});
+
+// テスト用メール送信エンドポイント（開発環境のみ）
+Route::get('/test-email', function () {
+    try {
+        \Illuminate\Support\Facades\Mail::raw('🏥 処方薬管理アプリのテストメールです！
+
+このメールが届いていれば、メール送信機能は正常に動作しています。
+
+📧 送信日時: ' . now()->format('Y年m月d日 H:i:s') . '
+🚀 送信元: 処方薬管理アプリ (Laravel API)
+
+テスト完了！', function ($message) {
+            $message->to('test@medication-tracker.app')
+                    ->subject('🧪 処方薬管理アプリ - メール送信テスト');
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'テストメールを送信しました！Mailtrapで確認してください。'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'メール送信に失敗しました',
+            'error' => $e->getMessage()
+        ], 500);
+    }
 });
