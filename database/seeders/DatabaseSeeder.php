@@ -19,5 +19,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // 副作用タイプの初期データを投入
+        $this->call(SideEffectTypeSeeder::class);
     }
 }

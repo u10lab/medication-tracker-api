@@ -3,59 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\MedicationLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
 class MedicationLogController extends Controller
 {
-    /**
-     * Get mock medication logs data for testing
-     */
-    private function getMockLogs()
-    {
-        return [
-            [
-                'id' => 1,
-                'medication_pattern_id' => 1,
-                'scheduled_date' => '2024-09-07',
-                'scheduled_time' => '08:00:00',
-                'actual_time' => '2024-09-07 08:15:00',
-                'status' => 'taken',
-                'side_effects' => ['眠気'],
-                'notes' => '少し眠気を感じた',
-                'severity_level' => 'mild',
-                'created_at' => '2024-09-07T08:15:00Z',
-                'updated_at' => '2024-09-07T08:15:00Z'
-            ],
-            [
-                'id' => 2,
-                'medication_pattern_id' => 1,
-                'scheduled_date' => '2024-09-06',
-                'scheduled_time' => '08:00:00',
-                'actual_time' => '2024-09-06 08:00:00',
-                'status' => 'taken',
-                'side_effects' => null,
-                'notes' => '問題なし',
-                'severity_level' => null,
-                'created_at' => '2024-09-06T08:00:00Z',
-                'updated_at' => '2024-09-06T08:00:00Z'
-            ],
-            [
-                'id' => 3,
-                'medication_pattern_id' => 2,
-                'scheduled_date' => '2024-09-05',
-                'scheduled_time' => '14:00:00',
-                'actual_time' => null,
-                'status' => 'missed',
-                'side_effects' => null,
-                'notes' => '飲み忘れ',
-                'severity_level' => null,
-                'created_at' => '2024-09-05T14:00:00Z',
-                'updated_at' => '2024-09-05T14:00:00Z'
-            ]
-        ];
-    }
 
     /**
      * Display a listing of medication logs.
@@ -64,34 +18,53 @@ class MedicationLogController extends Controller
     {
         try {
             $user = Auth::user();
-            $logs = collect($this->getMockLogs());
+            \Log::info('MedicationLog index called', ['user_id' => $user->id]);
+            
+            // Get user's medications directly
+            $userMedicationIds = \App\Models\Medication::where('user_id', $user->id)->pluck('id');
+            \Log::info('User medication IDs', ['ids' => $userMedicationIds->toArray()]);
+            
+            $query = MedicationLog::whereIn('medication_id', $userMedicationIds)
+                ->with('medication');
 
             // Filter by date range if provided
             if ($request->has('start_date') && $request->has('end_date')) {
                 $startDate = $request->get('start_date');
                 $endDate = $request->get('end_date');
-                $logs = $logs->filter(function ($log) use ($startDate, $endDate) {
-                    return $log['scheduled_date'] >= $startDate && $log['scheduled_date'] <= $endDate;
-                });
+                $query->byDateRange($startDate, $endDate);
             }
 
             // Filter by status if provided
             if ($request->has('status')) {
                 $status = $request->get('status');
-                $logs = $logs->filter(function ($log) use ($status) {
-                    return $log['status'] === $status;
-                });
+                $query->byStatus($status);
             }
+
+            $logs = $query->orderBy('scheduled_date', 'desc')
+                ->orderBy('scheduled_time', 'desc')
+                ->paginate($request->get('per_page', 15));
 
             return response()->json([
                 'success' => true,
-                'data' => $logs->values()->all()
+                'data' => $logs->items(),
+                'meta' => [
+                    'current_page' => $logs->currentPage(),
+                    'last_page' => $logs->lastPage(),
+                    'per_page' => $logs->perPage(),
+                    'total' => $logs->total()
+                ]
             ]);
         } catch (\Exception $e) {
+            \Log::error('Failed to retrieve medication logs', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::user()?->id ?? 'unknown'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve logs',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -103,17 +76,31 @@ class MedicationLogController extends Controller
     {
         try {
             $user = Auth::user();
+            \Log::info('MedicationLog store called', ['user_id' => $user->id, 'request_data' => $request->all()]);
             
-            $newLog = array_merge($request->all(), [
-                'id' => rand(100, 999),
-                'created_at' => now()->toISOString(),
-                'updated_at' => now()->toISOString()
+            $validatedData = $request->validate([
+                'medication_id' => 'required|exists:medications,id',
+                'scheduled_date' => 'required|date',
+                'scheduled_time' => 'required|date_format:H:i:s',
+                'status' => 'required|in:taken,missed,skipped',
+                'actual_time' => 'nullable|date',
+                'side_effects' => 'nullable|array',
+                'notes' => 'nullable|string',
+                'severity_level' => 'nullable|in:mild,moderate,severe'
             ]);
+
+            // Verify the medication belongs to user
+            $medication = \App\Models\Medication::where('user_id', $user->id)
+                ->findOrFail($validatedData['medication_id']);
+
+            \Log::info('Creating medication log', ['validated_data' => $validatedData]);
+            $log = MedicationLog::create($validatedData);
+            \Log::info('Medication log created successfully', ['log_id' => $log->id]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Log created successfully',
-                'data' => $newLog
+                'data' => $log->load('medication')
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -131,15 +118,13 @@ class MedicationLogController extends Controller
     {
         try {
             $user = Auth::user();
-            $logs = collect($this->getMockLogs());
-            $log = $logs->firstWhere('id', (int)$id);
-
-            if (!$log) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Log not found'
-                ], 404);
-            }
+            
+            // Get user's medication IDs first
+            $userMedicationIds = \App\Models\Medication::where('user_id', $user->id)->pluck('id');
+            
+            $log = MedicationLog::whereIn('medication_id', $userMedicationIds)
+                ->with('medication')
+                ->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -148,9 +133,9 @@ class MedicationLogController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve log',
+                'message' => 'Log not found',
                 'error' => $e->getMessage()
-            ], 500);
+            ], 404);
         }
     }
 
@@ -161,24 +146,29 @@ class MedicationLogController extends Controller
     {
         try {
             $user = Auth::user();
-            $logs = collect($this->getMockLogs());
-            $log = $logs->firstWhere('id', (int)$id);
-
-            if (!$log) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Log not found'
-                ], 404);
-            }
-
-            $updatedLog = array_merge($log, $request->all(), [
-                'updated_at' => now()->toISOString()
+            
+            $request->validate([
+                'scheduled_date' => 'sometimes|date',
+                'scheduled_time' => 'sometimes|date_format:H:i:s',
+                'status' => 'sometimes|in:taken,missed,skipped',
+                'actual_time' => 'nullable|date',
+                'side_effects' => 'nullable|array',
+                'notes' => 'nullable|string',
+                'severity_level' => 'nullable|in:mild,moderate,severe'
             ]);
+
+            // Get user's medication IDs first
+            $userMedicationIds = \App\Models\Medication::where('user_id', $user->id)->pluck('id');
+            
+            $log = MedicationLog::whereIn('medication_id', $userMedicationIds)
+                ->findOrFail($id);
+            
+            $log->update($request->validated());
 
             return response()->json([
                 'success' => true,
                 'message' => 'Log updated successfully',
-                'data' => $updatedLog
+                'data' => $log->load('medication')
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -196,25 +186,34 @@ class MedicationLogController extends Controller
     {
         try {
             $user = Auth::user();
-            $logs = collect($this->getMockLogs());
-            $log = $logs->firstWhere('id', (int)$id);
-
-            if (!$log) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Log not found'
-                ], 404);
-            }
+            \Log::info('MedicationLog destroy called', ['user_id' => $user->id, 'log_id' => $id]);
+            
+            // Get user's medication IDs first
+            $userMedicationIds = \App\Models\Medication::where('user_id', $user->id)->pluck('id');
+            \Log::info('User medication IDs', ['ids' => $userMedicationIds->toArray()]);
+            
+            $log = MedicationLog::whereIn('medication_id', $userMedicationIds)
+                ->findOrFail($id);
+            \Log::info('Log found for deletion', ['log' => $log->toArray()]);
+            
+            $log->delete();
+            \Log::info('Log deleted successfully');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Log deleted successfully'
             ]);
         } catch (\Exception $e) {
+            \Log::error('Failed to delete medication log', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::user()?->id ?? 'unknown',
+                'log_id' => $id
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete log',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
