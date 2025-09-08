@@ -6,11 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class Medication extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory;
 
     /**
      * The table associated with the model.
@@ -18,17 +17,13 @@ class Medication extends Model
     protected $table = 'medications';
 
     /**
-     * The primary key type.
-     */
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
         'user_id',
         'name',
+        'description',
+        'image_path',
         'generic_name',
         'dosage_form',
         'strength',
@@ -43,20 +38,22 @@ class Medication extends Model
         'drug_interactions',
         'storage_instructions',
         'notes',
-        'is_active'
+        'is_active',
+        'schedule'
     ];
 
     /**
      * The attributes that should be cast.
      */
     protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
         'indications' => 'array',
         'contraindications' => 'array',
         'side_effects' => 'array',
         'drug_interactions' => 'array',
         'is_active' => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'schedule' => 'array'
     ];
 
     /**
@@ -73,22 +70,6 @@ class Medication extends Model
     public function medicationPatterns(): HasMany
     {
         return $this->hasMany(MedicationPattern::class);
-    }
-
-    /**
-     * Get the medication logs for this medication.
-     */
-    public function medicationLogs(): HasMany
-    {
-        return $this->hasMany(MedicationLog::class);
-    }
-
-    /**
-     * Scope a query to only include active medications.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

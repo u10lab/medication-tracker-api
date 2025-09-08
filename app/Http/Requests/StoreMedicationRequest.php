@@ -24,7 +24,7 @@ class StoreMedicationRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'generic_name' => 'nullable|string|max:255',
-            'dosage_form' => 'required|string|max:100',
+            'dosage_form' => 'nullable|string|max:100',
             'strength' => 'nullable|string|max:100',
             'manufacturer' => 'nullable|string|max:255',
             'prescription_number' => 'nullable|string|max:100',

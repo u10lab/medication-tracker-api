@@ -16,62 +16,6 @@ use Illuminate\Pagination\Paginator;
 
 class MedicationController extends Controller
 {
-    /**
-     * Get mock medications data for testing
-     */
-    private function getMockMedications()
-    {
-        return [
-            [
-                'id' => 1,
-                'name' => 'アムロジピン',
-                'generic_name' => 'Amlodipine',
-                'description' => '高血圧・狭心症の治療薬（カルシウム拮抗薬）',
-                'image' => 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzE5NzZkMiIvPgo8dGV4dCB4PSIzMiIgeT0iNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+💊PC90ZXh0Pgo8L3N2Zz4=',
-                'dosage' => '5mg',
-                'frequency' => '1日1回',
-                'duration_days' => 30,
-                'remaining_count' => 25,
-                'total_count' => 30,
-                'expiry_date' => '2024-12-31',
-                'notes' => '朝食後に服用',
-                'is_active' => true,
-                'schedule' => [
-                    'type' => 'daily',
-                    'dosesPerDay' => 1,
-                    'times' => ['08:00'],
-                    'startDate' => '2024-01-15',
-                    'endDate' => '2024-12-31'
-                ],
-                'created_at' => '2024-01-15T10:00:00Z',
-                'updated_at' => '2024-01-15T10:00:00Z'
-            ],
-            [
-                'id' => 2,
-                'name' => 'ロキソニン',
-                'generic_name' => 'Loxoprofen',
-                'description' => '解熱鎮痛薬（NSAIDs）痛み・炎症を和らげる',
-                'image' => 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iI2Y1N2MwMCIvPgo8dGV4dCB4PSIzMiIgeT0iNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+💊PC90ZXh0Pgo8L3N2Zz4=',
-                'dosage' => '60mg',
-                'frequency' => '1日3回',
-                'duration_days' => 7,
-                'remaining_count' => 18,
-                'total_count' => 21,
-                'expiry_date' => '2025-06-30',
-                'notes' => '痛みがある時のみ服用',
-                'is_active' => true,
-                'schedule' => [
-                    'type' => 'daily',
-                    'dosesPerDay' => 3,
-                    'times' => ['08:00', '12:00', '18:00'],
-                    'startDate' => '2024-02-01',
-                    'endDate' => '2025-06-30'
-                ],
-                'created_at' => '2024-02-01T14:30:00Z',
-                'updated_at' => '2024-02-01T14:30:00Z'
-            ]
-        ];
-    }
 
     /**
      * Display a listing of the user's medications.
@@ -81,50 +25,24 @@ class MedicationController extends Controller
         try {
             $user = Auth::user();
             
-            // Get mock data
-            $medications = collect($this->getMockMedications());
-
-            // Filter by active status
-            if ($request->has('active')) {
-                $active = filter_var($request->get('active'), FILTER_VALIDATE_BOOLEAN);
-                $medications = $medications->filter(function ($medication) use ($active) {
-                    return $medication['is_active'] === $active;
-                });
-            }
+            $query = Medication::forUser($user->id);
 
             // Search by name
             if ($request->has('search')) {
                 $search = $request->get('search');
-                $medications = $medications->filter(function ($medication) use ($search) {
-                    return stripos($medication['name'], $search) !== false ||
-                           stripos($medication['generic_name'], $search) !== false;
-                });
+                $query->where('name', 'like', "%{$search}%");
             }
 
-            // Convert to array for pagination
-            $medicationsArray = $medications->values()->all();
-            $perPage = $request->get('per_page', 15);
-            $currentPage = $request->get('page', 1);
-            $offset = ($currentPage - 1) * $perPage;
-            $itemsForCurrentPage = array_slice($medicationsArray, $offset, $perPage);
-
-            // Create paginated response
-            $paginated = new LengthAwarePaginator(
-                $itemsForCurrentPage,
-                count($medicationsArray),
-                $perPage,
-                $currentPage,
-                ['path' => $request->url(), 'query' => $request->query()]
-            );
+            $medications = $query->paginate($request->get('per_page', 15));
 
             return response()->json([
                 'success' => true,
-                'data' => $paginated->items(),
+                'data' => $medications->items(),
                 'meta' => [
-                    'current_page' => $paginated->currentPage(),
-                    'last_page' => $paginated->lastPage(),
-                    'per_page' => $paginated->perPage(),
-                    'total' => $paginated->total()
+                    'current_page' => $medications->currentPage(),
+                    'last_page' => $medications->lastPage(),
+                    'per_page' => $medications->perPage(),
+                    'total' => $medications->total()
                 ]
             ]);
         } catch (\Exception $e) {
@@ -139,30 +57,50 @@ class MedicationController extends Controller
     /**
      * Store a newly created medication.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreMedicationRequest $request): JsonResponse
     {
         try {
             $user = Auth::user();
+            \Log::info('Creating medication for user:', ['user_id' => $user->id, 'data' => $request->all()]);
             
-            // Mock create operation - return new medication with ID
-            $newMedication = array_merge($request->all(), [
-                'id' => rand(100, 999),
+            $medication = Medication::create([
                 'user_id' => $user->id,
-                'is_active' => true,
-                'created_at' => now()->toISOString(),
-                'updated_at' => now()->toISOString()
+                'name' => $request->name,
+                'description' => $request->description,
+                'image_path' => $request->image_path,
+                'generic_name' => $request->generic_name,
+                'dosage_form' => $request->dosage_form,
+                'strength' => $request->strength,
+                'manufacturer' => $request->manufacturer,
+                'prescription_number' => $request->prescription_number,
+                'prescribing_doctor' => $request->prescribing_doctor,
+                'pharmacy' => $request->pharmacy,
+                'ndc_number' => $request->ndc_number,
+                'indications' => $request->indications,
+                'contraindications' => $request->contraindications,
+                'side_effects' => $request->side_effects,
+                'drug_interactions' => $request->drug_interactions,
+                'storage_instructions' => $request->storage_instructions,
+                'notes' => $request->notes,
+                'is_active' => $request->is_active ?? true,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Medication created successfully',
-                'data' => $newMedication
+                'data' => new MedicationResource($medication)
             ], 201);
         } catch (\Exception $e) {
+            \Log::error('Failed to create medication:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::user()?->id ?? 'unknown'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create medication',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -175,64 +113,84 @@ class MedicationController extends Controller
         try {
             $user = Auth::user();
             
-            // Find medication in mock data
-            $medications = collect($this->getMockMedications());
-            $medication = $medications->firstWhere('id', (int)$id);
-
-            if (!$medication) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Medication not found'
-                ], 404);
-            }
+            $medication = Medication::forUser($user->id)->findOrFail($id);
 
             return response()->json([
                 'success' => true,
-                'data' => $medication
+                'data' => new MedicationResource($medication)
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve medication',
+                'message' => 'Medication not found',
                 'error' => $e->getMessage()
-            ], 500);
+            ], 404);
         }
     }
 
     /**
      * Update the specified medication.
      */
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdateMedicationRequest $request, string $id): JsonResponse
     {
         try {
             $user = Auth::user();
+            \Log::info('Updating medication', ['user_id' => $user->id, 'medication_id' => $id, 'data' => $request->all()]);
             
-            // Find medication in mock data
-            $medications = collect($this->getMockMedications());
-            $medication = $medications->firstWhere('id', (int)$id);
-
-            if (!$medication) {
+            // 基本的な検証のみ
+            if (!is_numeric($id) || (is_numeric($id) && intval($id) <= 0)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Medication not found'
-                ], 404);
+                    'message' => '無効なIDです。',
+                    'error' => 'Invalid ID'
+                ], 400);
             }
-
-            // Mock update - merge request data
-            $updatedMedication = array_merge($medication, $request->all(), [
-                'updated_at' => now()->toISOString()
-            ]);
+            
+            $medication = Medication::forUser($user->id)->findOrFail($id);
+            \Log::info('Medication found for update', ['medication' => $medication->toArray()]);
+            
+            $validatedData = $request->validated();
+            \Log::info('Validated data for update', ['validated_data' => $validatedData]);
+            
+            // 安全な更新のため、既知のフィールドのみを使用
+            $allowedFields = [
+                'name', 'description', 'image_path', 'generic_name', 'dosage_form', 
+                'strength', 'manufacturer', 'prescription_number', 'prescribing_doctor', 
+                'pharmacy', 'ndc_number', 'indications', 'contraindications', 
+                'side_effects', 'drug_interactions', 'storage_instructions', 
+                'notes', 'is_active', 'schedule'
+            ];
+            
+            $updateData = collect($validatedData)
+                ->only($allowedFields)
+                ->filter(function ($value, $key) {
+                    return $value !== null || in_array($key, ['description', 'notes', 'storage_instructions']);
+                })
+                ->toArray();
+                
+            \Log::info('Final update data', ['update_data' => $updateData]);
+            
+            $medication->update($updateData);
+            \Log::info('Medication updated successfully');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Medication updated successfully',
-                'data' => $updatedMedication
+                'data' => new MedicationResource($medication->fresh())
             ]);
         } catch (\Exception $e) {
+            \Log::error('Failed to update medication', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::user()?->id ?? 'unknown',
+                'medication_id' => $id,
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update medication',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -245,18 +203,18 @@ class MedicationController extends Controller
         try {
             $user = Auth::user();
             
-            // Find medication in mock data
-            $medications = collect($this->getMockMedications());
-            $medication = $medications->firstWhere('id', (int)$id);
-
-            if (!$medication) {
+            // 基本的な検証のみ
+            if (!is_numeric($id) || (is_numeric($id) && intval($id) <= 0)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Medication not found'
-                ], 404);
+                    'message' => '無効なIDです。',
+                    'error' => 'Invalid ID'
+                ], 400);
             }
+            
+            $medication = Medication::forUser($user->id)->findOrFail($id);
+            $medication->delete();
 
-            // Mock delete - always successful
             return response()->json([
                 'success' => true,
                 'message' => 'Medication deleted successfully'

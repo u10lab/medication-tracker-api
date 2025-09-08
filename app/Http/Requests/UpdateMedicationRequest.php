@@ -22,43 +22,34 @@ class UpdateMedicationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'sometimes|required|string|max:255',
+            'name' => 'sometimes|string|max:255',
             'generic_name' => 'nullable|string|max:255',
-            'dosage_form' => 'sometimes|required|string|max:100',
+            'dosage_form' => 'nullable|string|max:100',
             'strength' => 'nullable|string|max:100',
             'manufacturer' => 'nullable|string|max:255',
             'prescription_number' => 'nullable|string|max:100',
             'prescribing_doctor' => 'nullable|string|max:255',
             'pharmacy' => 'nullable|string|max:255',
             'ndc_number' => 'nullable|string|max:50',
-            'indications' => 'nullable|array',
-            'indications.*' => 'string|max:500',
-            'contraindications' => 'nullable|array',
-            'contraindications.*' => 'string|max:500',
-            'side_effects' => 'nullable|array',
-            'side_effects.*' => 'string|max:500',
-            'drug_interactions' => 'nullable|array',
-            'drug_interactions.*' => 'string|max:500',
-            'storage_instructions' => 'nullable|string|max:1000',
-            'notes' => 'nullable|string|max:2000',
-            'is_active' => 'boolean'
-        ];
-    }
-
-    /**
-     * Get custom messages for validator errors.
-     */
-    public function messages(): array
-    {
-        return [
-            'name.required' => '薬剤名は必須です',
-            'name.max' => '薬剤名は255文字以内で入力してください',
-            'dosage_form.required' => '剤形は必須です',
-            'dosage_form.max' => '剤形は100文字以内で入力してください',
-            'indications.*.max' => '適応症は各項目500文字以内で入力してください',
-            'contraindications.*.max' => '禁忌は各項目500文字以内で入力してください',
-            'side_effects.*.max' => '副作用は各項目500文字以内で入力してください',
-            'drug_interactions.*.max' => '薬物相互作用は各項目500文字以内で入力してください'
+            'indications' => 'nullable',
+            'contraindications' => 'nullable',
+            'side_effects' => 'nullable',
+            'drug_interactions' => 'nullable',
+            'storage_instructions' => 'nullable|string',
+            'notes' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'description' => 'nullable|string',
+            'image_path' => 'nullable|string|max:500',
+            // スケジュール情報
+            'schedule' => 'nullable|array',
+            'schedule.type' => 'nullable|string',
+            'schedule.dosesPerDay' => 'nullable|integer',
+            'schedule.times' => 'nullable|array',
+            'schedule.times.*' => 'nullable|string',
+            'schedule.startDate' => 'nullable|date',
+            'schedule.endDate' => 'nullable|date|after_or_equal:schedule.startDate',
+            'schedule.cyclePattern' => 'nullable|array',
+            'image' => 'nullable',
         ];
     }
 }

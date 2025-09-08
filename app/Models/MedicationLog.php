@@ -5,11 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class MedicationLog extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory;
 
     /**
      * The table associated with the model.
@@ -17,48 +16,30 @@ class MedicationLog extends Model
     protected $table = 'medication_logs';
 
     /**
-     * The primary key type.
-     */
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
-        'user_id',
         'medication_id',
-        'medication_pattern_id',
+        'scheduled_date',
         'scheduled_time',
-        'taken_time',
-        'dosage_amount',
-        'dosage_unit',
+        'actual_time',
         'status',
-        'notes',
         'side_effects',
-        'effectiveness_rating'
+        'notes',
+        'severity_level'
     ];
 
     /**
      * The attributes that should be cast.
      */
     protected $casts = [
+        'scheduled_date' => 'date',
         'scheduled_time' => 'datetime',
-        'taken_time' => 'datetime',
-        'dosage_amount' => 'decimal:3',
+        'actual_time' => 'datetime',
         'side_effects' => 'array',
-        'effectiveness_rating' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
-
-    /**
-     * Get the user that owns the medication log.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
 
     /**
      * Get the medication this log belongs to.
@@ -66,22 +47,6 @@ class MedicationLog extends Model
     public function medication(): BelongsTo
     {
         return $this->belongsTo(Medication::class);
-    }
-
-    /**
-     * Get the medication pattern this log belongs to.
-     */
-    public function medicationPattern(): BelongsTo
-    {
-        return $this->belongsTo(MedicationPattern::class);
-    }
-
-    /**
-     * Scope a query for a specific user.
-     */
-    public function scopeForUser($query, $userId)
-    {
-        return $query->where('user_id', $userId);
     }
 
     /**
@@ -97,7 +62,7 @@ class MedicationLog extends Model
      */
     public function scopeByDateRange($query, $startDate, $endDate)
     {
-        return $query->whereBetween('scheduled_time', [$startDate, $endDate]);
+        return $query->whereBetween('scheduled_date', [$startDate, $endDate]);
     }
 
     /**
