@@ -92,8 +92,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // テスト用メール送信エンドポイント（開発環境のみ）
     // 副作用タイプ
-Route::get('/side-effect-types', [\App\Http\Controllers\Api\SideEffectTypeController::class, 'index']);
-Route::get('/side-effect-types/category/{category}', [\App\Http\Controllers\Api\SideEffectTypeController::class, 'byCategory']);
+    Route::get('/side-effect-types', [\App\Http\Controllers\Api\SideEffectTypeController::class, 'index']);
+    Route::get('/side-effect-types/category/{category}', [\App\Http\Controllers\Api\SideEffectTypeController::class, 'byCategory']);
 
 Route::get('/test-email', function () {
     try {
