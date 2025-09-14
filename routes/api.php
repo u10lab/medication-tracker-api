@@ -11,6 +11,11 @@ Route::get('/user', function (Request $request) {
 // 認証関連のルート（CSRF検証を除外）
 Route::prefix('auth')->group(function () {
     Route::post('/token', function (Request $request) {
+        \Log::info('Auth token request received', [
+            'request_data' => $request->all(),
+            'headers' => $request->headers->all()
+        ]);
+
         $request->validate([
             'supabase_token' => 'required|string',
         ]);

@@ -24,6 +24,8 @@ return [
         'http://localhost:5174',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
+        'https://medication-tracker-ashy.vercel.app',
+        'https://medication-tracker-450cq61hd-u10labs-projects.vercel.app',
     ],
 
     'allowed_origins_patterns' => [],

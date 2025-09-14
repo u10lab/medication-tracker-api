@@ -16,26 +16,40 @@ class SupabaseAuthService
     {
         $this->supabaseUrl = config('services.supabase.url');
         $this->supabaseServiceKey = config('services.supabase.service_key');
+        
+        // デバッグ用ログ
+        Log::info('SupabaseAuthService initialized', [
+            'url' => $this->supabaseUrl ? 'set' : 'missing',
+            'service_key' => $this->supabaseServiceKey ? 'set' : 'missing',
+            'env' => config('app.env')
+        ]);
     }
 
     /**
      * Verify Supabase JWT token and get user info
      */
     public function verifyToken(string $token): ?array
+    // : ?array: このメソッドが返す値（出力）の型を定義。「配列(array)またはnullのどちらかを返す」という意味。?がnullを許容することを示す。
     {
         try {
             Log::info('Verifying Supabase token', ['token_length' => strlen($token)]);
             
-            // 開発環境でのテスト用ダミー実装
+            //  開発環境でのテスト用ダミー実装
             if (config('app.env') === 'local') {
                 // Supabase JWT トークンをデコードしてユーザー情報を取得
                 if (str_starts_with($token, 'eyJ')) {
+                    // PHPの文字列関数で、「もし$tokenが'eyJ'という文字列で始まっていれば」という条件。JWT（JSON Web Token）は通常この文字列で始まる。
                     try {
                         $payload = json_decode(base64_decode(str_replace('_', '/', str_replace('-', '+', explode('.', $token)[1]))), true);
+                        // .でトークンを分割し、2番目の部分（ペイロード）を取得
+                        // Base64エンコードのURLセーフな文字(-, _)を標準の文字(+, /)に置換
+                        // Base64でエンコードされた文字列をデコード
+                        // デコードされたJSON文字列をPHPの連想配列に変換
                         Log::info('Using JWT payload for local development', ['payload' => $payload]);
                         
                         return [
                             'id' => $payload['sub'] ?? 'test-user-id',
+                            // ??はNull合体演算子で、「左側の値が存在しnullでなければそれを使い、そうでなければ右側の値を使う」
                             'email' => $payload['email'] ?? 'test@example.com',
                             'user_metadata' => [
                                 'name' => $payload['user_metadata']['name'] ?? 'Test User'
@@ -47,8 +61,8 @@ class SupabaseAuthService
                     }
                 }
                 
-                if ($token === 'test_token') {
-                    Log::info('Using test token for local development');
+                if ($token === 'test_token' ) {
+                    // 決め打ちのテストユーザー情報を返す。これはAPIテストツール（Postmanなど）で非常に便利
                     return [
                         'id' => 'test-user-id',
                         'email' => 'test@example.com',
@@ -71,6 +85,7 @@ class SupabaseAuthService
             Log::info('Making request to Supabase', ['url' => $this->supabaseUrl]);
             
             $response = Http::withHeaders([
+                // LaravelのHTTPクライアント機能。リクエストにヘッダーを追加する。
                 'Authorization' => "Bearer {$token}",
                 'apikey' => $this->supabaseServiceKey,
             ])->get("{$this->supabaseUrl}/auth/v1/user");
